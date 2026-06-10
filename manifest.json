@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "花花幼儿园",
+  "version": "0.1.0",
+  "description": "把长内容拆成几分钟的知识单元——每开一个新标签，学一点、复习一点。",
+  "icons": { "16": "assets/icon/icon-16.png", "32": "assets/icon/icon-32.png", "48": "assets/icon/icon-48.png", "128": "assets/icon/icon-128.png" },
+  "chrome_url_overrides": { "newtab": "newtab.html" },
+  "background": { "service_worker": "background.js" },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv9/cAcT32YTOIlkS2zL6jWewITfFZVmRPzxb656PRX431lWcNJw9mvDxIbMte4IMVbON+yUz0tdcPBeZNS9dSvB/zPMRKEaNLa2i6Vj4TqOaev87RVCTzv3Fhwm5QeG4NBVa1lYiIIThNw5JWuB20gS/o15+eHBrbGvM+vJO9QWyPb9XwqewCtBnFTWOq0C2d8kHhm12kZXtMeQ2KkwXkdOxAp4RLJpOn8AKUsNHHTKtFWw6noYwtgAJiVss0c8pdjBQi2ZzfE7AsbeX/ygm88F8QUat04Fv6MAD4uHWamlqV314aHym5F27JW3QyMLZe9x4fxusdeaYfMPbLFnEkQIDAQAB",
+  "permissions": ["storage", "idle", "alarms", "tabs"],
+  "host_permissions": ["https://api.deepseek.com/*", "https://www.youtube.com/*", "http://localhost:8799/*", "http://127.0.0.1:8799/*", "http://localhost:8788/*", "http://127.0.0.1:8788/*", "https://*.supabase.co/*"]
+}

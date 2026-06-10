@@ -1,0 +1,7 @@
+{
+  "_comment": "旧版排行榜(飞书 Base)的遗留配置，现排行榜已走 Supabase、不再用这里。留空即可：baseToken/tableId 为空时旧接口显示「未配置」，不影响 AI 时长统计。larkCli 由 install.sh 自动探测填入(launchd 下 PATH 精简，需绝对路径)。",
+  "baseToken": "",
+  "tableId": "",
+  "me": "",
+  "larkCli": ""
+}
