@@ -305,7 +305,6 @@ function renderIdle() {
   // 下一段的内容钩子（有就显示问题、没有退化成段标题/课程名）
   const nextSeg = (!complete && cur >= 0) ? segments()[cur] : null;
   const courseName = src.title || "我的内容";
-  const kicker = complete ? "已学完" : `下一段 · ${courseName}`;
   const hookText = complete ? "这门课看完了 🎉"
     : (nextSeg && nextSeg.hook) ? nextSeg.hook
     : (nextSeg && nextSeg.title) ? nextSeg.title
@@ -328,12 +327,11 @@ function renderIdle() {
                  <div class="home-tagline">${pickTagline()}</div>
                </div>
              </div>
-             <div class="section-header">
+             <div class="section-header" id="segCard" role="button" tabindex="0" title="${esc(ctaLabel)}" aria-label="${esc(ctaLabel)}">
                <div class="sh-main">
-                 <div class="sh-k">${esc(kicker)}</div>
                  <div class="sh-title" id="shTitle">${esc(hookText)}</div>
                </div>
-               <button class="sh-play" id="goSeg" title="${esc(ctaLabel)}" aria-label="${esc(ctaLabel)}"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"><path d="M9 6.5 18 12l-9 5.5z"/></svg></button>
+               <span class="sh-play" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"><path d="M9 6.5 18 12l-9 5.5z"/></svg></span>
              </div>
            </div>
            <div class="home-left-side">${studyGrid()}</div>
@@ -341,7 +339,7 @@ function renderIdle() {
        </aside>
          <div class="usage" id="usagePanel">
            <div class="usage-head">
-             <span class="usage-hl"><span class="usage-title">AI 用量</span><button class="goal-edit" id="goalEdit" title="设定目标"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/></svg>目标</button></span>
+             <span class="usage-hl"><button class="usage-toggle" id="usageToggle" title="圆环 / 近 14 天趋势 切换"><span class="usage-title">AI 用量</span><span class="usage-chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M8 16v-4M13 16V8M18 16v-6"/></svg>趋势</span></button><button class="goal-edit" id="goalEdit" title="设定目标"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.4"/></svg>目标</button></span>
              <span class="usage-tabs" id="usageTabs">
                <button class="ut on" data-range="today">今日</button>
                <button class="ut" data-range="week">近7天</button>
@@ -359,7 +357,7 @@ function renderIdle() {
                <div class="lb-rows" id="lbRowsStreak"><div class="usage-skel">读取中…</div></div>
              </div>
              <div class="lb-col">
-               <div class="lb-subhead">AI 时长 · 今日</div>
+               <div class="lb-subhead lb-subhead-ai">AI 时长<button class="lb-rangetag" id="lbAiRangeBtn" title="今日 / 近7天 切换"><span class="lrt-t">今日</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button></div>
                <div class="lb-rows" id="lbRowsAi"><div class="usage-skel">读取中…</div></div>
              </div>
            </div>
@@ -383,10 +381,14 @@ function renderIdle() {
     mas.style.cursor = "pointer"; mas.title = "点我换表情";
     mas.onclick = () => { mascotIdx++; mas.style.backgroundImage = `url(${mascotSrc(mascotIdx)})`; };
   }
-  const go = $("goSeg");
-  if (go) go.onclick = complete
-    ? async () => { setDone(0); await saveState(); renderIdle(); }
-    : () => enterSegment(cur);
+  const seg$ = $("segCard");
+  if (seg$) {
+    const act = complete
+      ? async () => { setDone(0); await saveState(); renderIdle(); }
+      : () => enterSegment(cur);
+    seg$.onclick = act;
+    seg$.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); act(); } };
+  }
   const tse = $("ttSearch"); if (tse) tse.oninput = () => renderTabsInline(tse.value);
   // 动作按钮点击 → gooey 粒子迸发（委托，覆盖合并/清理重复/排序/保留最近 等按钮）
   const ttAct = $("ttActions");
@@ -396,7 +398,7 @@ function renderIdle() {
     ensureSummary(cur).then((changed) => {
       if (!changed || !nextSeg.hook) return;
       const st = $("shTitle"); if (st) st.textContent = nextSeg.hook;
-      const g = $("goSeg"); if (g) g.textContent = "这段就讲这个 →";
+      const sc = $("segCard"); if (sc) { sc.title = "这段就讲这个 →"; sc.setAttribute("aria-label", "这段就讲这个 →"); }
     });
   }
   renderUsage();
@@ -449,11 +451,15 @@ async function sortTabsByDomain() {
 let _tabSheet = [];
 function tsHost(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return "其它"; } }
 // 不该出现在标签管理里的页面：① 新标签页（本扩展/浏览器自带）② 本地调试（localhost / 127.x / file://）
+// 新标签页：浏览器原生 chrome://newtab 或本扩展的 newtab.html
+function isNewTab(t) {
+  const u = t.url || "";
+  return /^chrome:\/\/newtab/i.test(u) || /^chrome-extension:\/\/[^/]+\/newtab\.html/i.test(u);
+}
 function isJunkTab(t) {
   const u = t.url || "";
   if (!u) return false;
-  if (/^chrome:\/\/newtab/i.test(u)) return true;                       // 浏览器新标签
-  if (/^chrome-extension:\/\/[^/]+\/newtab\.html/i.test(u)) return true; // 本扩展新标签
+  if (isNewTab(t)) return true;                                          // 新标签页
   if (/^file:\/\//i.test(u)) return true;                               // 本地文件调试
   try {
     const h = new URL(u).hostname;
@@ -535,7 +541,38 @@ function findWorkflows(tabs) {
 }
 
 // 按网站：同 URL 去重折叠成 ×N，再按域名归堆，按数量降序；closeIds 收齐该站所有真实 tab（含被折叠的）
+// 主域名(eTLD+1 简化版)：bytedance.sg.larkoffice.com → larkoffice.com
+function regDomain(host) {
+  const p = (host || "").split(".");
+  return p.length <= 2 ? (host || "") : p.slice(-2).join(".");
+}
+// 「同一产品多区域」域名：按主域名合并（飞书 sg/my/us/默认 → 一个 larkoffice.com 组）。
+// 其余域名仍按完整 host 分组，避免把 tiktok-row.net 下不同工具(libra/aeolus/holmes)混到一起。
+const MERGE_DOMAINS = new Set(["larkoffice.com", "feishu.cn", "larksuite.com", "feishu.net"]);
+// 飞书文档类型(取自 URL 路径)：docx/sheets/base/wiki/minutes/file —— 跟图标颜色一一对应，跨区域(sg/us/cn)都准
+function larkDocType(url) {
+  const m = (url || "").match(/(?:larkoffice\.com|feishu\.cn|larksuite\.com|feishu\.net)\/([a-z]+)\//i);
+  if (!m) return "";
+  let t = m[1].toLowerCase();
+  if (t === "docs") t = "docx"; if (t === "sheet") t = "sheets"; if (t === "bitable") t = "base";
+  return t;
+}
+const LARK_TYPES = new Set(["docx", "sheets", "base", "wiki", "minutes", "file"]);
+const LARK_LABEL = { docx: "飞书文档", sheets: "飞书表格", base: "飞书多维表格", wiki: "飞书知识库", minutes: "飞书妙记", file: "飞书文件" };
+// 站点别名：把内部工具域名映射成中文名，并把多区域子域名(va/row/eu…)合并成一组。要加新名字往这里加一行。
+const SITE_ALIASES = [
+  { test: /^aeolus[-.]/i, key: "aeolus", label: "风神看板" },
+  { test: /^libra[-.]/i, key: "libra", label: "libra 实验" },
+];
+
+// 组内排序键：飞书按文档类型，其余按 favicon URL
+function iconSortKey(t) {
+  const type = larkDocType(t.url);
+  return type ? "1lark:" + type : "2fav:" + (t.favIconUrl || "");
+}
+
 function groupTabsBySite(tabs) {
+  // ① 先按 url 去重（同一 url 多开合一条）
   const byUrl = new Map();
   for (const t of tabs) {
     const key = t.url || ("__noid__" + t.id); // 没 url 的各算各的
@@ -545,17 +582,45 @@ function groupTabsBySite(tabs) {
     const better = (t.active && !e.rep.active) || (!e.rep.active && (t.lastAccessed || 0) > (e.rep.lastAccessed || 0));
     if (better) e.rep = t;
   }
+  // ② 归组：飞书文档按「类型」分组(docx/表格/多维表格…，跨区域同类型合并)；飞书里非文档(如 meego)及其余站点→按完整 host
+  const keyOf = (t) => {
+    const h = tsHost(t.url), rd = regDomain(h);
+    if (MERGE_DOMAINS.has(rd)) { const type = larkDocType(t.url); if (LARK_TYPES.has(type)) return "lark:" + type; }
+    const a = SITE_ALIASES.find((x) => x.test.test(h));
+    if (a) return "alias:" + a.key;
+    return h;
+  };
   const m = new Map();
   for (const e of byUrl.values()) {
-    const h = tsHost(e.rep.url);
-    if (!m.has(h)) m.set(h, { items: [], closeIds: [] });
-    const g = m.get(h);
+    const k = keyOf(e.rep);
+    if (!m.has(k)) {
+      let label = k;
+      if (k.startsWith("lark:")) label = LARK_LABEL[k.slice(5)] || k.slice(5);
+      else if (k.startsWith("alias:")) { const a = SITE_ALIASES.find((x) => "alias:" + x.key === k); label = a ? a.label : k.slice(6); }
+      m.set(k, { label, items: [], closeIds: [], favCount: new Map() });
+    }
+    const g = m.get(k);
     g.items.push({ rep: e.rep, count: e.count, depth: 0 });
     g.closeIds.push(...e.ids);
+    const f = (e.rep.favIconUrl || "").trim();
+    if (f) g.favCount.set(f, (g.favCount.get(f) || 0) + 1);
   }
-  return [...m.entries()]
-    .sort((a, b) => b[1].items.length - a[1].items.length || a[0].localeCompare(b[0]))
-    .map(([host, g]) => ({ label: host, items: g.items, closeIds: g.closeIds }));
+  // ③ 组头图标取组内最常见的 favicon
+  const arr = [...m.values()].map((g) => {
+    let fav = "", best = 0;
+    for (const [f, c] of g.favCount) if (c > best) { best = c; fav = f; }
+    // 组内：同类型(同色图标)聚到一起（docx 一片、表格一片、多维表格一片）；同类型内保持原顺序
+    g.items.sort((x, y) => iconSortKey(x.rep).localeCompare(iconSortKey(y.rep)));
+    return { label: g.label, fav, items: g.items, closeIds: g.closeIds };
+  });
+  // 排序：同图标聚到一起；聚类之间按总标签数排（大图标聚类在前，飞书这种大组仍靠前）；聚类内大组在前
+  const favTotal = new Map();
+  for (const g of arr) favTotal.set(g.fav, (favTotal.get(g.fav) || 0) + g.closeIds.length);
+  return arr.sort((a, b) =>
+    (favTotal.get(b.fav) - favTotal.get(a.fav)) ||           // 大的图标聚类在前
+    (a.fav || "￿").localeCompare(b.fav || "￿") ||            // 把同图标的紧挨在一起（无图标的排最后）
+    (b.closeIds.length - a.closeIds.length) ||               // 同聚类内：标签多的组在前
+    a.label.localeCompare(b.label));
 }
 
 function tabRowHTML({ rep: t, count, depth }) {
@@ -574,7 +639,8 @@ function groupCardHTML(g) {
   const closeAll = (g.isWorkflow || n >= 2)
     ? `<button class="tg-close" data-ids="${g.closeIds.join(",")}" title="一键关闭这组 ${n} 个标签" aria-label="关闭整组（${n} 个）">${ICON.close}</button>`
     : "";
-  return `<div class="tg-group${g.isWorkflow ? " wf" : ""}"><div class="tg-head">${tag}<span class="tg-host">${esc(g.label)}</span>${closeAll}</div>` +
+  const ghFav = (!g.isWorkflow && g.fav) ? `<img class="tg-fav" src="${esc(g.fav)}" alt="">` : "";
+  return `<div class="tg-group${g.isWorkflow ? " wf" : ""}"><div class="tg-head">${tag}${ghFav}<span class="tg-host">${esc(g.label)}</span>${closeAll}</div>` +
     `<div class="tg-grid">${g.items.map(tabRowHTML).join("")}</div></div>`;
 }
 
@@ -598,22 +664,23 @@ async function renderTabsInline(filter) {
   // 第一遍：全塞第 1 列（此时列宽=最终列宽），测每张卡真实高度
   colEls[0].innerHTML = groups.map(groupCardHTML).join("");
   const measured = [...colEls[0].children].map((el, i) => ({ el, h: el.offsetHeight, wf: !!groups[i].isWorkflow }));
-  // 第二遍：网站卡先放（高的先放、贪心进最矮列，均衡），工作流卡再接在后面
+  // 第二遍：网站卡按「图标排序」的顺序放（保留 groupTabsBySite 的顺序，不再按高度重排），
+  // 每张贪心进当前最矮列——同图标的卡因此落在相邻位置，列高仍大致均衡。工作流卡按高度均衡接在后面。
   const colH = new Array(cols).fill(0);
   const place = (list) => list.forEach(({ el, h }) => {
     let mi = 0; for (let i = 1; i < cols; i++) if (colH[i] < colH[mi]) mi = i;
     colEls[mi].appendChild(el);
     colH[mi] += h + GAP;
   });
-  place(measured.filter((m) => !m.wf).sort((a, b) => b.h - a.h));
+  place(measured.filter((m) => !m.wf));
   place(measured.filter((m) => m.wf).sort((a, b) => b.h - a.h));
   // 窗口变化时重排（列数随宽变），防抖
   if (!renderTabsInline._resizeBound) {
     renderTabsInline._resizeBound = true;
     let rt; window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => renderTabsInline($("ttSearch") ? $("ttSearch").value : ""), 160); });
   }
-  body.querySelectorAll("img.ts-fav").forEach((img) => img.addEventListener("error", () => {
-    const s = document.createElement("span"); s.className = "ts-fav ph"; img.replaceWith(s);
+  body.querySelectorAll("img.ts-fav, img.tg-fav").forEach((img) => img.addEventListener("error", () => {
+    const s = document.createElement("span"); s.className = img.className + " ph"; img.replaceWith(s);
   }));
   const activate = async (el) => {
     const id = Number(el.dataset.id), win = Number(el.dataset.win);
@@ -871,7 +938,7 @@ function renderBoard(container, metric, players) {
     const medal = rank <= 3 && !zero; // 前三且有成绩才发奖牌（0 分不发金牌）
     const rankCell = medal
       ? `<span class="rank medal" title="第 ${rank} 名">${medalSVG(metric, rank)}</span>`
-      : `<span class="rank">${zero ? "–" : rank}</span>`; // 0 分不算名次，显示「–」
+      : `<span class="rank${zero ? " zero" : ""}">${zero ? "–" : rank}</span>`; // 0 分不算名次，显示「–」
     return `<div class="lrow${medal ? " top" : ""}${p.me ? " me" : ""}">
         ${rankCell}${ava}
         <span class="lname">${esc(p.name || "匿名")}</span>
@@ -980,10 +1047,28 @@ function openAuthModal(mode) {
 }
 function closeAuthModal() { const m = $("authMask"); if (m) m.classList.remove("show"); }
 
-const lbAiRange = "today"; // AI 时长榜只看今日（近7天仍上报，仅前端不展示切换）
+let lbAiRange = "today";   // AI 时长榜口径：today | week（点标题旁的小标签切换）
+let lbPlayersCache = [];   // 最近一次读到的榜，供切口径时本地重渲（不重新拉网）
+// 「AI 时长」标题旁的「今日/近7天」小标签：点一下切换口径，只重渲 AI 榜
+function bindAiRangeTag() {
+  const el = $("lbAiRangeBtn");
+  if (!el || el.dataset.bound) return;
+  el.dataset.bound = "1";
+  el.onclick = () => {
+    lbAiRange = lbAiRange === "week" ? "today" : "week";
+    syncAiRangeTag();
+    renderBoard($("lbRowsAi"), "ai", lbPlayersCache);
+  };
+}
+function syncAiRangeTag() {
+  const el = $("lbAiRangeBtn"); if (!el) return;
+  const t = el.querySelector(".lrt-t"); if (t) t.textContent = lbAiRange === "week" ? "近7天" : "今日";
+  el.classList.toggle("on", lbAiRange === "week");
+}
 async function renderLeaderboard() {
   const cStreak = $("lbRowsStreak"), cAi = $("lbRowsAi");
   if (!cStreak || !cAi) return;
+  bindAiRangeTag(); syncAiRangeTag();
   const foot = $("lbFoot");
   const auth = $("lbAuth");
   const setBoth = (html) => { cStreak.innerHTML = html; cAi.innerHTML = html; };
@@ -1030,19 +1115,24 @@ async function renderLeaderboard() {
 
   const uid = s && s.uid;
   const dd = new Date();
-  const todayStr = `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, "0")}-${String(dd.getDate()).padStart(2, "0")}`;
+  const dkey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const todayStr = dkey(dd);
+  const weekAgoStr = dkey(new Date(dd.getFullYear(), dd.getMonth(), dd.getDate() - 7)); // 7 天前
   const players = data.map((p) => {
-    const fresh = p.ai_date === todayStr; // 只有今天报过的，今日/近7天才算数，否则归 0（沉底）
+    // 今日值必须当天报的（昨天的「今日」对今天无意义）；近7天值只要 7 天内报过就算（周窗口仍重叠、不应清零）
+    const freshToday = p.ai_date === todayStr;
+    const freshWeek = !!p.ai_date && p.ai_date >= weekAgoStr;
     return {
       name: p.name || "匿名", avatar: p.avatar || "",
       streak: Number(p.streak) || 0,
-      aiToday: fresh ? (Number(p.ai_today) || 0) : 0,
-      aiWeek: fresh ? (Number(p.ai_week) || 0) : 0,
+      aiToday: freshToday ? (Number(p.ai_today) || 0) : 0,
+      aiWeek: freshWeek ? (Number(p.ai_week) || 0) : 0,
       me: p.user_id === uid,
     };
   });
   if (!players.length) { setBoth(`<div class="usage-skel">还没有人上榜</div>`); if (foot) foot.textContent = ""; return; }
 
+  lbPlayersCache = players;
   renderBoard(cStreak, "streak", players);
   renderBoard(cAi, "ai", players);
 
@@ -1069,7 +1159,17 @@ async function getTabsState() {
   // 没有『标签页』权限时 url 会全为空 —— 报需要重载，而不是误报
   if (tabs.length && tabs.every((t) => !t.url)) return { needReload: true, eligible: [] };
   const eligible = tabs.filter((t) => !t.pinned && t.url && !isJunkTab(t) && !(current && t.id === current.id));
-  return { eligible, total: tabs.length };
+  // 多余的新标签页：所有新标签里，留一个(优先当前这个)，其余算重复
+  const newtabs = tabs.filter((t) => !t.pinned && isNewTab(t));
+  let keepId = current && isNewTab(current) ? current.id : null;
+  if (keepId == null && newtabs.length) keepId = newtabs.slice().sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0].id;
+  const newtabExtras = newtabs.filter((t) => t.id !== keepId).map((t) => t.id);
+  return { eligible, total: tabs.length, newtabExtras };
+}
+
+// 「清理重复」要关的全部 id：同 URL 重复 + 多余的新标签页(只留一个)
+function dupCleanIds(s) {
+  return [...dupIdsFrom(s.eligible || []), ...(s.newtabExtras || [])];
 }
 
 function dupIdsFrom(eligible) {
@@ -1105,7 +1205,7 @@ async function scanTabs() {
   if (s.error) return clear("读取标签页失败：" + s.error);
 
   const e = s.eligible;
-  const dup = dupIdsFrom(e);
+  const dup = dupCleanIds(s);
   const lru = lru80IdsFrom(e);
   if (count) count.textContent = `共 ${e.length} 个`;
   body.innerHTML = "";
@@ -1120,9 +1220,9 @@ async function scanTabs() {
 
   $("ttMerge").onclick = mergeWindows;
   $("ttSort").onclick = sortTabsByDomain;
-  // 清理重复：安全(同 URL 留最近用过的一个)，直接执行、不弹确认
+  // 清理重复：安全(同 URL 留最近用过的一个 + 多余新标签只留一个)，直接执行、不弹确认
   if ($("ttDup")) $("ttDup").onclick = () => executeClean(
-    async () => dupIdsFrom((await getTabsState()).eligible || []));
+    async () => dupCleanIds(await getTabsState()));
   // 保留最近 20%：要关一大批、破坏性强，保留二次确认
   if ($("ttLru")) $("ttLru").onclick = () => confirmClean(lru.length, "（只留最近 20%）",
     async () => lru80IdsFrom((await getTabsState()).eligible || []));
@@ -1168,6 +1268,17 @@ function confirmClean(n, what, recompute) {
 const USAGE_BACKEND = "http://127.0.0.1:8788";
 let usageRange = "today";   // today | week | total
 let goalEditing = false;
+let usageBarsOpen = false;   // 每日时长柱状图：默认收起，点「AI 用量」展开/收起（状态持久化）
+function loadUsageBarsOpen() {
+  return new Promise((r) => {
+    try { chrome.storage.local.get({ usageBarsOpen: false }, (x) => { usageBarsOpen = !!(x && x.usageBarsOpen); r(); }); }
+    catch { try { usageBarsOpen = JSON.parse(localStorage.getItem("usageBarsOpen") || "false"); } catch { /* ignore */ } r(); }
+  });
+}
+function saveUsageBarsOpen() {
+  try { chrome.storage.local.set({ usageBarsOpen }); } catch { /* ignore */ }
+  try { localStorage.setItem("usageBarsOpen", JSON.stringify(usageBarsOpen)); } catch { /* ignore */ }
+}
 // 目标：每日基准。近7天 ×7、累计 ×30 缩放时长/Token；回本是比率，各周期目标恒定
 const GOAL_DEFAULTS = { timeHrs: 3, tokM: 1, be: 200 };
 let usageGoals = { ...GOAL_DEFAULTS };
@@ -1215,6 +1326,68 @@ function fmtMoney(n) {
   return "$" + n.toFixed(2);
 }
 let usageSub = 0; // 订阅基准（$/月），来自服务端 pricing.json
+
+// 柱状图悬停提示：自定义浮层（替换原生 title 那个灰框）。深色暖药丸 + 指向柱子的小尖角。
+let _barTip = null;
+function ensureBarTip() {
+  if (!_barTip) { _barTip = document.createElement("div"); _barTip.className = "ubar-tip"; document.body.appendChild(_barTip); }
+  return _barTip;
+}
+function hideBarTip() { if (_barTip) _barTip.classList.remove("show"); }
+function wireBarHover() {
+  const host = $("usageRows"); if (!host || host.dataset.tipBound) return;
+  host.dataset.tipBound = "1";
+  host.addEventListener("mouseover", (e) => {
+    const b = e.target.closest(".ubar"); if (!b || !b.dataset.d) return;
+    const tip = ensureBarTip();
+    tip.innerHTML = `<span class="ut-d">${b.dataset.d}</span><b class="ut-t">${b.dataset.t}</b>` +
+      (b.dataset.s ? `<span class="ut-s">${b.dataset.s}</span>` : "");
+    tip.classList.add("show");
+    // 锚到可见柱子（.ubar-stack）的顶，而非整列（.ubar 占满图高）——否则矮柱子浮层会飘在图顶离得很远
+    const anchor = b.querySelector(".ubar-stack") || b;
+    const r = anchor.getBoundingClientRect(), tr = tip.getBoundingClientRect();
+    let x = r.left + r.width / 2 - tr.width / 2;
+    x = Math.max(8, Math.min(x, window.innerWidth - tr.width - 8));      // 贴边不溢出
+    tip.style.left = `${Math.round(x)}px`;
+    tip.style.top = `${Math.round(r.top - tr.height - 9)}px`;
+    const caret = Math.max(9, Math.min(r.left + r.width / 2 - x, tr.width - 9)); // 尖角始终指向该柱
+    tip.style.setProperty("--caret", `${Math.round(caret)}px`);
+  });
+  host.addEventListener("mouseout", (e) => { if (e.target.closest(".ubar")) hideBarTip(); });
+}
+
+// 近 N 天每日 AI 时长柱状图（Claude + Codex 堆叠）。数据来自 /usage 每个工具的 daily{日期:分钟}。
+// main=true：作为「趋势」主视图替换圆环（更高、撑满圆环那块的高度）。
+function dailyBars(claude, codex, N = 14, main = false) {
+  const cd = (claude && claude.daily) || {}, xd = (codex && codex.daily) || {};
+  const p2 = (n) => String(n).padStart(2, "0");
+  const now = new Date();
+  const days = [];
+  for (let i = N - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const key = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+    const cc = cd[key] || 0, cx = xd[key] || 0;
+    days.push({ d, cc, cx, total: cc + cx });
+  }
+  if (!days.some((x) => x.total > 0)) return ""; // 近 N 天无记录 → 不画
+  const max = Math.max(...days.map((x) => x.total));
+  const fm = (m) => m >= 60 ? `${Math.floor(m / 60)}时${m % 60 ? `${m % 60}分` : ""}` : `${m}分`;
+  const lbl = (d) => `${d.getMonth() + 1}/${d.getDate()}`;
+  const bars = days.map((x) => {
+    const dd = lbl(x.d);
+    const tt = x.total ? fm(x.total) : "无记录";
+    const ss = (x.cc && x.cx) ? `Claude ${fm(x.cc)} · Codex ${fm(x.cx)}` : "";
+    const hStyle = x.total ? `height:max(3px, ${((x.total / max) * 100).toFixed(1)}%)` : "height:0";
+    return `<div class="ubar" data-d="${dd}" data-t="${tt}"${ss ? ` data-s="${ss}"` : ""}><div class="ubar-stack" style="${hStyle}">` +
+      `<span class="useg cx" style="flex:${x.cx}"></span><span class="useg cc" style="flex:${x.cc}"></span></div></div>`;
+  }).join("");
+  return `<div class="ubars${main ? " ubars-main" : ""}">
+      <div class="ubars-head"><span class="ubars-title">近 ${N} 天 · 每日时长</span>
+        <span class="ubars-leg"><i class="ud cc"></i>Claude<i class="ud cx"></i>Codex</span></div>
+      <div class="ubars-plot">${bars}</div>
+      <div class="ubars-x"><span>${lbl(days[0].d)}</span><span>${lbl(days[N - 1].d)}</span></div>
+    </div>`;
+}
 
 async function renderUsage() {
   const rowsEl = $("usageRows"); if (!rowsEl) return;
@@ -1266,6 +1439,14 @@ async function renderUsage() {
   }
   if (goalBtn) goalBtn.classList.toggle("on", goalEditing);
 
+  // 「AI 用量」点击：展开/收起每日柱状图（绑定一次，状态持久化）
+  const barsBtn = $("usageToggle");
+  if (barsBtn && !barsBtn.dataset.bound) {
+    barsBtn.dataset.bound = "1";
+    barsBtn.onclick = () => { usageBarsOpen = !usageBarsOpen; saveUsageBarsOpen(); renderUsage(); };
+  }
+  if (barsBtn) barsBtn.classList.toggle("on", usageBarsOpen);
+
   // 编辑态：表单替换环；底部清空
   if (goalEditing) {
     rowsEl.innerHTML =
@@ -1302,13 +1483,14 @@ async function renderUsage() {
     legRow(RING.be,    "回本",  hasAI ? Math.round(beMult) + "x" : "—", goalBe + "x") +
     (beBasis ? `<div class="rleg-sub">${beBasis}</div>` : "");
 
+  // 趋势态：柱状图替换圆环（占同一块、卡片不变高）；否则显示三同心环 + 图例
+  const ringView = `<div class="ring-wrap"><div class="ring-box">${rings}</div><div class="ring-legend">${legend}</div></div>`;
+  hideBarTip(); // 重渲前先收掉可能残留的浮层
   rowsEl.innerHTML =
-    `<div class="ustat-card">
-       <div class="ring-wrap">
-         <div class="ring-box">${rings}</div>
-         <div class="ring-legend">${legend}</div>
-       </div>
-     </div>`;
+    `<div class="ustat-card">${usageBarsOpen ? (dailyBars(cc, cx, 14, true) || ringView) : ringView}</div>`;
+  wireBarHover(); // 柱状图悬停浮层（委托在 usageRows 上，绑定一次）
+  // 区间 tab（今日/近7天/累计）只服务于圆环；趋势态隐藏
+  const tabsEl = $("usageTabs"); if (tabsEl) tabsEl.style.display = usageBarsOpen ? "none" : "";
 
   // 底部只留异常/配置提示；回本依据已挂在「回本」环后面
   const footEl = $("usageFoot");
@@ -1831,6 +2013,7 @@ function bindSettings() {
 (async function init() {
   await loadState();
   await loadGoals();
+  await loadUsageBarsOpen();
   bindSettings();
   renderMain();
 })();

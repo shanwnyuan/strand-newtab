@@ -231,6 +231,13 @@ function summarize(dir, kind, gapMin, price) {
     if (last7.has(day)) { tokWeek += tok; cacheWeek += cache_; costWeek += cost; }
   }
 
+  // 每日活跃时长（分钟，近 35 天）——给前端画历史柱状图
+  const cutoffKey = localDayKey(now - 35 * 86400 * 1000);
+  const daily = {};
+  for (const [k, ms] of Object.entries(minByDay)) {
+    if (k >= cutoffKey) { const m = Math.round(ms / 60000); if (m > 0) daily[k] = m; }
+  }
+
   const r2 = (n) => Math.round(n * 100) / 100;
   return {
     todayMin: Math.round((minByDay[today] || 0) / 60000),
@@ -240,6 +247,7 @@ function summarize(dir, kind, gapMin, price) {
     tokToday, tokWeek, tokTotal,
     cacheToday, cacheWeek, cacheTotal,
     costToday: r2(costToday), costWeek: r2(costWeek), costTotal: r2(costTotal),
+    daily,
   };
 }
 

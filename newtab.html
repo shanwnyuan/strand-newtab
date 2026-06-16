@@ -188,11 +188,18 @@
   .home-tagline{font-size:13.5px;font-weight:600;color:var(--text-2);line-height:1.5;margin:0}
 
   /* 橙色课程横幅 */
-  .section-header{display:flex;align-items:stretch;background:var(--surface-2);
-    border-radius:14px;overflow:hidden;margin:0 0 16px}
+  .section-header{position:relative;display:flex;align-items:stretch;background:var(--surface-2);
+    border-radius:14px;overflow:hidden;margin:0 0 16px;cursor:pointer;
+    transition:transform .14s ease, box-shadow .14s ease, background .14s ease}
+  .section-header:hover{transform:translateY(-2px);box-shadow:var(--shadow);background:var(--surface)}
+  .section-header:active{transform:translateY(0);box-shadow:var(--shadow-sm)}
+  .section-header:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  /* hover：一道光泽斜扫而过（像闪一下），引导点击 */
+  .section-header::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+    background:linear-gradient(105deg,transparent 36%,rgba(255,255,255,.7) 50%,transparent 64%);transform:translateX(-130%)}
+  .section-header:hover::after{animation:sheen 1.3s ease}
+  @keyframes sheen{to{transform:translateX(130%)}}
   .section-header .sh-main{flex:1;min-width:0;padding:13px 15px}
-  .section-header .sh-k{font-size:11.5px;font-weight:700;letter-spacing:.3px;color:var(--text-2);margin-bottom:3px;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .section-header .sh-title{font-size:16.5px;font-weight:800;color:var(--text);line-height:1.3;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
@@ -200,8 +207,9 @@
   .section-header .sh-play{flex:none;align-self:center;width:40px;margin-right:8px;border:none;cursor:pointer;
     background:transparent;color:var(--accent);display:grid;place-items:center;transition:color .12s,transform .1s}
   .section-header .sh-play svg{width:25px;height:25px;padding-left:2px}
-  .section-header .sh-play:hover{color:var(--accent-strong);transform:scale(1.1)}
-  .section-header .sh-play:active{transform:scale(.95)}
+  .section-header:hover .sh-play{color:var(--accent-strong);animation:nudge .9s ease-in-out infinite}
+  @keyframes nudge{0%,100%{transform:translateX(0)}50%{transform:translateX(5px)}}
+  @media (prefers-reduced-motion:reduce){ .section-header:hover::after,.section-header:hover .sh-play{animation:none} }
 
   /* 打卡立方体网格（每个打卡格是一个 3D 小立方体；跟随鼠标倾斜 + 点击涟漪，复刻 React Bits Cubes） */
   .hcube-wrap{width:100%}
@@ -253,6 +261,42 @@
   .rl-g{color:var(--text-3);font-weight:600;font-style:normal;font-size:12px;font-variant-numeric:tabular-nums}
   /* 回本依据：紧贴「回本」行下方，对齐到标签起点 */
   .rleg-sub{margin-top:-4px;padding-left:17px;font-size:11.5px;color:var(--text-3);line-height:1.5}
+  /* 「AI 用量」点击在 圆环 / 趋势 间切换 + 「趋势」小标签（提示可点） */
+  .usage-toggle{display:inline-flex;align-items:center;gap:7px;font-family:inherit;cursor:pointer;border:none;background:none;padding:0;border-radius:8px}
+  .usage-chev{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:var(--text-3);
+    background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:2px 8px 2px 6px;line-height:1;transition:.14s}
+  .usage-chev svg{width:11px;height:11px}
+  .usage-toggle:hover .usage-chev{color:var(--text-2);border-color:var(--border-strong)}
+  .usage-toggle.on .usage-chev{color:var(--amber-tx);border-color:var(--amber-bd);background:var(--amber-bg)}
+  /* 近 N 天每日时长柱状图（Claude+Codex 堆叠） */
+  .ubars{margin-top:16px;border-top:1px solid var(--border);padding-top:13px}
+  /* 趋势主视图：替换圆环、撑满那块高度，不加顶边 */
+  .ubars-main{margin-top:0;border-top:none;padding-top:2px}
+  .ubars-main .ubars-plot{height:108px}
+  .ubars-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .ubars-title{font-size:12px;font-weight:700;letter-spacing:.3px;color:var(--text-3)}
+  .ubars-leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3)}
+  .ubars-leg .ud{width:8px;height:8px;border-radius:2px;display:inline-block}
+  .ubars-leg .ud + *{margin-left:1px}
+  .ubars-leg .ud.cx{margin-left:9px}
+  .ud.cc,.useg.cc{background:oklch(0.72 0.155 62)}   /* Claude = 琥珀（与「时长」环同色） */
+  .ud.cx,.useg.cx{background:oklch(0.58 0.13 264)}   /* Codex = 靛蓝 */
+  .ubars-plot{display:flex;align-items:flex-end;gap:3px;height:56px}
+  .ubar{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;cursor:default}
+  .ubar-stack{width:100%;display:flex;flex-direction:column;border-radius:3px 3px 0 0;overflow:hidden;transition:opacity .12s}
+  .ubar:hover .ubar-stack{opacity:.7}
+  .useg{width:100%;min-height:0}
+  .ubars-x{display:flex;justify-content:space-between;margin-top:5px;font-size:10px;color:var(--text-3);font-variant-numeric:tabular-nums}
+  /* 柱状图悬停浮层：深色暖药丸 + 指向柱子的小尖角（替换原生 title 灰框） */
+  .ubar-tip{position:fixed;z-index:80;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:1px;
+    background:var(--primary);color:var(--on-dark);padding:5px 11px 6px;border-radius:10px;box-shadow:var(--shadow-pop);
+    opacity:0;transform:translateY(3px) scale(.96);transform-origin:bottom center;transition:opacity .13s ease,transform .13s ease}
+  .ubar-tip.show{opacity:1;transform:none}
+  .ubar-tip::after{content:"";position:absolute;top:100%;left:var(--caret,50%);transform:translateX(-50%);
+    border:5px solid transparent;border-top-color:var(--primary)}
+  .ubar-tip .ut-d{font-size:10px;font-weight:600;letter-spacing:.03em;color:oklch(0.8 0.012 70)}
+  .ubar-tip .ut-t{font-size:13px;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums}
+  .ubar-tip .ut-s{font-size:9.5px;font-weight:500;color:oklch(0.82 0.012 70);margin-top:1px}
   /* 目标编辑入口 + 表单 */
   .usage-hl{display:flex;align-items:center;gap:9px;min-width:0}
   .goal-edit{display:inline-flex;align-items:center;gap:4px;font-family:inherit;cursor:pointer;border:none;background:none;
@@ -320,17 +364,21 @@
   .lb-col{flex:1 1 0;min-width:0}
   .lb-col + .lb-col{border-left:1px dashed var(--border);margin-left:22px;padding-left:22px} /* 两榜之间的竖虚线，随整卡高度拉满 */
   .lb-subhead{font-size:11.5px;font-weight:700;color:var(--text-3);margin-bottom:11px;letter-spacing:.02em}
-  .lb-subhead-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .lb-mini-tabs{display:inline-flex;gap:0;background:rgba(118,118,128,.12);border-radius:7px;padding:2px}
-  .lb-mini-tabs .lmt{font-family:inherit;cursor:pointer;border:none;background:none;color:var(--text-3);font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:5px;line-height:1.3;transition:color .15s}
-  .lb-mini-tabs .lmt:hover{color:var(--text-2)}
-  .lb-mini-tabs .lmt.on{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  /* AI 时长榜标题旁「今日/近7天」可点小标签 */
+  .lb-subhead-ai{display:flex;align-items:center;gap:6px}
+  .lb-rangetag{display:inline-flex;align-items:center;gap:1px;font-family:inherit;cursor:pointer;
+    border:1px solid var(--border);background:var(--surface-2);color:var(--text-3);
+    font-size:10px;font-weight:700;border-radius:999px;padding:1px 5px 1px 7px;line-height:1.5;transition:.14s}
+  .lb-rangetag svg{width:10px;height:10px}
+  .lb-rangetag:hover{color:var(--text-2);border-color:var(--border-strong)}
+  .lb-rangetag.on{color:var(--amber-tx);border-color:var(--amber-bd);background:var(--amber-bg)}
   .lb-legend{font-size:11px;font-weight:700;color:var(--text-3)}
   .lgap{height:1px;background:var(--border);margin:3px 0}
   .lb-rows{display:flex;flex-direction:column;gap:9px}
   .lrow{display:flex;align-items:center;gap:11px}
   .lrow .rank{flex:none;width:18px;text-align:center;font-size:13px;font-weight:800;color:var(--text-3);font-variant-numeric:tabular-nums}
   .lrow.top .rank:not(.medal){color:var(--accent)} /* 第4名起的数字才用强调色；奖牌自有金银铜 */
+  .lrow .rank.zero{color:var(--border-strong)} /* 0 天/未上榜的「–」占位：浅灰，弱化 */
   .lrow .rank.medal{display:inline-flex;align-items:center;justify-content:center;width:20px}
   .lrow .rank.medal svg{width:18px;height:18px} /* 金银铜渐变在 SVG 内嵌 linearGradient（见 newtab.js medalSVG）*/
   .lrow .ava{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;
@@ -423,6 +471,8 @@
   /* 工作流卡：底色与站点卡一致，仅靠左上角「工作流」标 + ↳ 缩进区分 */
   .tg-head{display:flex;align-items:center;gap:6px;margin-bottom:11px;padding:0 6px;
     font-size:11px;font-weight:600;color:var(--text-3);letter-spacing:.2px}
+  .tg-head .tg-fav{flex:none;width:15px;height:15px;border-radius:4px;object-fit:cover}
+  .tg-head .tg-fav.ph{background:var(--border-strong)}
   .tg-head .tg-host{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .tg-wf{flex:none;font-size:10px;font-weight:800;color:var(--accent-strong);background:var(--surface);
     border-radius:999px;padding:1px 7px;letter-spacing:.3px}
