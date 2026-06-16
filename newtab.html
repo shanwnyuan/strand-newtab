@@ -273,6 +273,10 @@
   /* 趋势主视图：替换圆环、撑满那块高度，不加顶边 */
   .ubars-main{margin-top:0;border-top:none;padding-top:2px}
   .ubars-main .ubars-plot{height:108px}
+  /* 趋势空状态：居中提示（旧版服务/没起/无记录），撑满圆环那块高度 */
+  .ubars-empty{min-height:142px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;text-align:center}
+  .ubars-empty b{font-size:13.5px;font-weight:700;color:var(--text-2)}
+  .ubars-empty span{font-size:11.5px;color:var(--text-3);line-height:1.5}
   .ubars-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
   .ubars-title{font-size:12px;font-weight:700;letter-spacing:.3px;color:var(--text-3)}
   .ubars-leg{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3)}

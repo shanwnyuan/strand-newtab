@@ -1356,6 +1356,17 @@ function wireBarHover() {
   host.addEventListener("mouseout", (e) => { if (e.target.closest(".ubar")) hideBarTip(); });
 }
 
+// 趋势态但没柱子可画时的空状态（别静默回退成圆环，否则像「点了没反应」）。
+// 区分三种：服务没起 / 服务是旧版没 daily 字段 / 服务新但近 14 天确实无记录。
+function emptyTrend(cc, cx, serverErr) {
+  let msg, sub = "";
+  const hasDailyField = (cc && cc.daily) || (cx && cx.daily); // 新版服务才有这个字段
+  if (serverErr) { msg = "本地服务没起"; sub = "启动 usage-tracker 服务后显示趋势"; }
+  else if (!hasDailyField) { msg = "趋势数据待更新"; sub = "本地服务是旧版，重跑 usage-tracker/install.sh 即可"; }
+  else { msg = "近 14 天暂无记录"; }
+  return `<div class="ubars ubars-main ubars-empty"><b>${msg}</b>${sub ? `<span>${sub}</span>` : ""}</div>`;
+}
+
 // 近 N 天每日 AI 时长柱状图（Claude + Codex 堆叠）。数据来自 /usage 每个工具的 daily{日期:分钟}。
 // main=true：作为「趋势」主视图替换圆环（更高、撑满圆环那块的高度）。
 function dailyBars(claude, codex, N = 14, main = false) {
@@ -1487,7 +1498,7 @@ async function renderUsage() {
   const ringView = `<div class="ring-wrap"><div class="ring-box">${rings}</div><div class="ring-legend">${legend}</div></div>`;
   hideBarTip(); // 重渲前先收掉可能残留的浮层
   rowsEl.innerHTML =
-    `<div class="ustat-card">${usageBarsOpen ? (dailyBars(cc, cx, 14, true) || ringView) : ringView}</div>`;
+    `<div class="ustat-card">${usageBarsOpen ? (dailyBars(cc, cx, 14, true) || emptyTrend(cc, cx, serverErr)) : ringView}</div>`;
   wireBarHover(); // 柱状图悬停浮层（委托在 usageRows 上，绑定一次）
   // 区间 tab（今日/近7天/累计）只服务于圆环；趋势态隐藏
   const tabsEl = $("usageTabs"); if (tabsEl) tabsEl.style.display = usageBarsOpen ? "none" : "";
