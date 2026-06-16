@@ -36,8 +36,10 @@ bash ~/repos/strand-newtab/usage-tracker/install.sh
 ## 更新
 
 ```bash
-cd ~/repos/strand-newtab && git pull
+cd ~/repos/strand-newtab && git pull && bash usage-tracker/install.sh
 ```
+
+> `git pull` 后**一定要重跑 `install.sh` 重启本地服务**——光 pull 不重启，AI 用量趋势这类依赖本地服务的新功能不会生效（你点「趋势」会看到「本地服务是旧版」的提示）。装过 usage 服务才需要这步；没装的只 `git pull` 即可。
 
 然后在 `chrome://extensions` 点该扩展的「**重新加载 ↻**」。完事。
 
